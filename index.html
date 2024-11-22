@@ -42,7 +42,7 @@ window.addEventListener('beforeunload', evt => {
 	    try {
 	    	
 	      const registration = await navigator.serviceWorker.register("/vuelos/sw.js", {
-	        scope: "/",
+	        scope: "/vuelos/",
 	      });
 	      if (registration.installing) {
 	        console.log("Service worker installing");
