@@ -9,7 +9,7 @@ const addResourcesToCache = async (resources) => {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     addResourcesToCache([
-      "/vuelos",
+      "/vuelos/",
       "/vuelos/assets/bootstrap.bundle.min.js",
       "/vuelos/assets/bootstrap.min.css",
       "/vuelos/assets/jquery-3.6.0.min.js",
