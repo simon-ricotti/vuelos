@@ -18,6 +18,21 @@ self.addEventListener("install", (event) => {
   );
 });
 
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.open(cacheName).then((cache) => {
+      return fetch(event.request)
+        .then((networkResponse) => {
+          cache.put(event.request, networkResponse.clone());
+          return networkResponse;
+        })
+        .catch(() => {
+          return cache.match(event.request);
+        });
+    })
+  );
+});
+/*
 self.addEventListener('fetch', (event) => {
   // Check if this is a navigation request
   if (event.request.mode === 'navigate') {
@@ -37,3 +52,4 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
+*/
