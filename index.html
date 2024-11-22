@@ -622,7 +622,7 @@ window.addEventListener('beforeunload', evt => {
           
             console.log("guardar: ");
             console.log(vuelos);
-            callAPI("syncVuelos", vuelos, mode, successFinalizar, errorSync)
+            callAPI("syncVuelos", vuelos, null, successFinalizar, errorSync)
             //google.script.run.withFailureHandler(errorSync).withSuccessHandler(successFinalizar).syncVuelos(vuelos);       
             }
             else
