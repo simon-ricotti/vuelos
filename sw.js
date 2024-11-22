@@ -10,7 +10,8 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     addResourcesToCache([
       "/",
-      "/vuelos.html",
+      "/vuelos",
+      "/vuelos/index.html",
     ]),
   );
 });
