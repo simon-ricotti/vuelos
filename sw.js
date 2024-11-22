@@ -9,8 +9,7 @@ const addResourcesToCache = async (resources) => {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     addResourcesToCache([
-      "/",
-      "/vuelos/",
+      "/vuelos",
       "/vuelos/index.html",
     ]),
   );
