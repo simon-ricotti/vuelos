@@ -1,0 +1,1051 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <base target="_top">
+  <script
+  src="https://code.jquery.com/jquery-3.6.0.min.js"
+  
+  crossorigin="anonymous"></script>
+  <!-- CSS only -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+  <!-- JavaScript Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous">
+  </script>
+  <style>
+      .bsb-btn-5xl {
+          padding: 1rem 1rem;
+          font-size: 2rem;
+          border-radius: .5rem;
+      }
+
+      .sel{
+         opacity: .45;
+      }
+  </style>
+<script type="text/javascript">
+window.addEventListener('beforeunload', evt => {
+  // Recommended
+  evt.preventDefault()
+  // Included for legacy support, e.g. Chrome/Edge < 119
+  evt.returnValue = true
+})
+</script>
+  <script>
+    
+
+    
+	const registerServiceWorker = async () => {
+	  if ("serviceWorker" in navigator) {
+	    try {
+	    	
+	      const registration = await navigator.serviceWorker.register("/sw.js", {
+	        scope: "/",
+	      });
+	      if (registration.installing) {
+	        console.log("Service worker installing");
+	      } else if (registration.waiting) {
+	        console.log("Service worker installed");
+	      } else if (registration.active) {
+
+	        console.log("Service worker active");
+	      }
+	    } catch (error) {
+	      console.error(`Registration failed with ${error}`);
+	    }
+	  }
+	};
+
+
+	registerServiceWorker();
+
+    
+    // window.localStorage.removeItem("data");
+  
+    //fin test data
+
+    loadDataBase();
+
+    transiciones={
+      "": ["puestaMarcha"],
+      "puestaMarcha":["despegue","apagado"],
+      "despegue":["lanzamiento","aterrizaje"],
+      "lanzamiento":["aterrizaje"],
+      "aterrizaje":["apagado"],
+      "apagado": []
+    };
+
+
+
+
+ 
+	function callAPI(methodName, paramData, paramCallback, success, error){
+		$.ajax({
+		    type: "POST",
+		    redirect: "follow",
+	      headers: {
+	        "Content-Type": "text/plain;charset=utf-8",
+	      },			   
+		    url: "https://script.google.com/macros/s/AKfycbwBAuK2FAZ4qof9nZEyG5J2oBkKh3Vo2gpqYXecZTZLuY6_tk7YRZKfIZy4iU3aJu0u/exec?method="+methodName+"&param1="+paramCallback+"&callback="+success.name,
+		    // The key needs to match your method's input parameter (case-sensitive).
+		    data: JSON.stringify(paramData),
+		    success: function(data)
+				{ 
+					eval(data)},
+		    error: function(errMsg) {
+		    	if (error){
+		    		error(errMsg)	
+		    	}else{
+		    		console.log(errMsg);
+		    	}
+		    	
+		        
+		    }
+		}); 		
+	}
+
+
+
+
+ 	function getPilotos(res){
+		$.each(res, function(key, value) {   
+		     $('#piloto')
+		         .append($("<option></option>")
+		                    .text(value)); 
+		});
+
+
+
+		cargar();
+
+
+	}
+
+    callAPI("getPilotos",null,null,getPilotos,null);
+
+
+
+
+
+
+
+    $( document ).ready(function() {
+
+		
+
+
+        var longpress = 0;
+        var interv;
+        var gbMove = false;
+        function move()
+        {
+            console.log("move");    
+        }
+
+        //binding de los datos al json
+        $(".datainp").on('change', function (event) {
+          
+           // console.log($(this).attr("id"));
+           saveVuelo($(this).attr("id"), $(this).val())
+            
+        });
+        $(".plazasRow input[type=radio]").on('change', function (event) {
+           
+           // console.log($(this).attr("id"));
+          var plazas=$("input[name^='btnradio']:checked").map(function() {
+            return $(this).val();
+        }).get();;
+
+          if (plazas.length>0){
+            // console.log(plazas.join("|"));
+             saveVuelo("plazas" , plazas.join("|")) 
+          }
+           
+        });        
+
+        refrescarHeaderData();
+
+        $(".selectAll button").on('click', function (event) {
+          var alt=$(this).attr("id").split("-")[1];
+;
+          $("#btnradio1"+alt).trigger("click");
+          $("#btnradio2"+alt).trigger("click");
+          $("#btnradio3"+alt).trigger("click");
+          $("#btnradio4"+alt).trigger("click");
+          $("#btnradio5"+alt).trigger("click");
+            
+            
+        });
+        //INICIO BOTONERA BEHAVIOR
+
+        $("#botonera button").on('click', function (event) {
+          
+            botoneraPressed(1,event);
+            
+        });
+        $("#botonera button").on('dblclick', function (event) {
+            botoneraPressed(2,event);
+            
+        });
+
+        //FIN BOTONERA BEHAVIOR
+
+
+
+        cargar();
+
+
+    });
+
+    function loadDataBase(){
+      console.log("load database: "+window.localStorage.getItem("data"));
+
+      let dataInLocalStorage = window.localStorage.getItem("data");
+
+      // check if it is null or not
+      if (dataInLocalStorage == null || dataInLocalStorage=="") {
+        data = {vuelos:[newEmptyRecord()]};
+        window.localStorage.setItem("data", JSON.stringify(data));
+      } else {
+        data = JSON.parse(dataInLocalStorage);
+      }      
+    }
+
+    function cargar(){
+        actualizarNroVuelo(); 
+        cargarBotonera();
+        cargarDatos();
+        //actualizar finalizar día status
+        console.log(window.localStorage.getItem("data"));
+        console.log(emptyVuelo());
+        $("#btn-finalizar").prop("disabled", emptyVuelo());
+      
+
+    }
+
+    function emptyVuelo(){
+      return ((data["vuelos"].length<=1)&&!(getCurrentVuelo()["piloto"]||getCurrentVuelo()["taqInicial"]||getCurrentVuelo()["taqFinal"]||getCurrentVuelo()["puestaMarcha"]||getCurrentVuelo()["despegue"]||getCurrentVuelo()["lanzamiento"]||getCurrentVuelo()["aterrizaje"]||getCurrentVuelo()["apagado"]||getCurrentVuelo()["plazas"]||getCurrentVuelo()["aceite"]||getCurrentVuelo()["obs"]));
+    }
+
+
+
+    function actualizarNroVuelo(){
+      console.log( "actualizarNroVuelo");
+      console.log(data["vuelos"]);
+      $("#nroVuelo").html("#"+data["vuelos"].length);
+    }
+    function getCurrentVuelo(){
+      return data["vuelos"][data["vuelos"].length-1];
+    }
+
+    function saveVuelo(attr, value){
+      data["vuelos"][data["vuelos"].length-1][attr]=value;
+      window.localStorage.setItem("data",JSON.stringify(data));
+      console.log(getCurrentVuelo());
+      return getCurrentVuelo();
+    }
+
+  function cargarDatos(){
+    vuelo= getCurrentVuelo();
+    console.log(vuelo["piloto"]);
+     $("#piloto").val(vuelo["piloto"]);
+    $("#de").val(vuelo["de"]);
+    $("#a").val(vuelo["a"]);
+    $("#taqInicial").val(vuelo["taqInicial"]);
+    $("#obs").val(vuelo["obs"]);
+    $("#aceite").val(vuelo["aceite"]);
+    if (vuelo["taqFinal"] ||  (vuelo["apagado"])){
+      $("#taqFinal").prop("disabled", false);
+      $("#taqFinal").val(vuelo["taqFinal"]);
+    }else{
+      $("#taqFinal").prop("disabled", true);
+      $("#taqFinal").val("");
+
+    }
+
+    //lo pongo siempre en modo paracaidismo
+    toggleParacaidismo(false);
+    toggleParacaidismo(true);
+    
+    if (vuelo["plazas"]!=null && vuelo["plazas"]!=""){
+      var plazas=vuelo["plazas"].split("|");
+      console.log("P:"+plazas);
+      console.log(plazas.length);
+      if (plazas.length>0){
+       //toggleParacaidismo(true);
+        for (var i=0;i<plazas.length;i++){
+            $("input[name=btnradio"+(i+1)+"][value=" + plazas[i] + "]").prop('checked', true);
+        }
+      }else{
+       // toggleParacaidismo(false);
+      }
+    }else{
+     // toggleParacaidismo(false);
+    }
+
+
+  }
+
+
+  function cargarBotonera(){
+    var lastAccion=getLastAccion();
+    console.log(lastAccion);
+    if (lastAccion[0]){
+      $("#btn-"+lastAccion[0]).html($("#btn-"+lastAccion[0]).html().split("-")[0]);
+    }
+    
+    pintarBotonera("btn-"+lastAccion[0], lastAccion[1]);
+
+  }
+
+    //mode: 1: click, ok. 2: dblclick: deshacer
+    function botoneraPressed(mode,e){
+     //if (!(longpress>0)) return;
+     //alert(longpress);
+
+     if (e !=null && e.target!=null){
+
+
+      
+      if ($("#"+e.target.id).hasClass("sel")){
+        //deshacer  
+         if(mode==2){
+            console.log("deshacer");
+            $("#"+e.target.id).html($("#"+e.target.id).html().split("-")[0]);
+            $("#"+e.target.id).removeClass("sel");
+             var accion=e.target.id.split("-")[1];
+             saveVuelo(accion,null);
+            
+            
+            cargarBotonera();
+
+            
+
+         }
+        
+      }else{
+        if (mode==1){
+        //tocar boton
+                console.log("button pressed");
+
+          const currentTime = new Date();
+          const hours = currentTime.getHours().toString().padStart(2, '0');
+          const minutes = (currentTime.getMinutes() ).toString().padStart(2, '0');
+
+          const formattedTime = `${hours}:${minutes}`;        
+          pintarBotonera(e.target.id, formattedTime);
+
+        }
+      }
+
+
+
+      //alert(buttonId);
+
+     }
+
+    } 
+
+    //ejemplo: ["despegue","10:22"]
+    function getLastAccion(){
+        var current=getCurrentVuelo();
+        console.log(current);
+
+        if (current["apagado"]){
+          return ["apagado",current["apagado"]];
+        }else if (current["aterrizaje"]){
+          return ["aterrizaje",current["aterrizaje"]];
+        }else if (current["lanzamiento"]){
+          return ["lanzamiento",current["lanzamiento"]];
+        }else if (current["despegue"]){
+          return ["despegue",current["despegue"]];
+        }else if (current["puestaMarcha"]){
+          return ["puestaMarcha",current["puestaMarcha"]];
+        }
+        return ["",""];
+    }
+
+    function pintarBotonera(idBotonSeleccionado, tiempo){
+        console.log( "pintarBotonera");
+        console.log(idBotonSeleccionado);
+        console.log(tiempo);
+        var accion=idBotonSeleccionado.split("-")[1];
+
+        //hack para limpiar si es todo vacio
+        if (accion==""){
+            $("#btn-puestaMarcha").html( $("#btn-puestaMarcha").html().split("-")[0]);
+            $("#btn-despegue").html( $("#btn-despegue").html().split("-")[0]);
+            $("#btn-lanzamiento").html( $("#btn-lanzamiento").html().split("-")[0]);
+            $("#btn-aterrizaje").html( $("#btn-aterrizaje").html().split("-")[0]);
+            $("#btn-apagado").html( $("#btn-apagado").html().split("-")[0]);
+             $("#botonera button").removeClass("sel");
+             //$(".ocultable").show();
+
+        }
+
+        var nexts=transiciones[accion];
+        console.log(nexts);
+        $( "#botonera button" ).each(function(i, obj) {
+        
+          if (obj.id == idBotonSeleccionado){
+            $("#"+idBotonSeleccionado).show();
+            $("#"+idBotonSeleccionado).addClass("sel");
+            
+            $("#"+idBotonSeleccionado).html($("#"+idBotonSeleccionado).html()+ " - "+tiempo);
+            
+            saveVuelo(accion,tiempo);
+          }else if(nexts.indexOf(obj.id.split("-")[1])>=0){
+            $(this).show();
+          }else{
+            $(this).hide();
+          }
+        });
+
+        if (idBotonSeleccionado=="btn-apagado"){
+
+          // $(".ocultable").show();
+          $("#taqFinal").prop("disabled",false);
+          $("#taqFinal").focus();
+
+  
+        }else{
+          /*
+          if (idBotonSeleccionado=="btn-puestaMarcha"){
+            $("#taqFinal").prop("disabled",true);
+            // $(".ocultable").hide();          
+          }
+          */
+          if (idBotonSeleccionado!="btn-"){
+            target = $("#botonera");
+            $('html, body').stop().animate({
+                        scrollTop: target.offset().top
+            }, 0);          
+            
+          }
+          $("#taqFinal").prop("disabled",true);
+        }
+        console.log(getCurrentVuelo()["apagado"]);
+
+
+
+        console.log(getCurrentVuelo());
+    }
+
+    function toggleParacaidismo(val){
+      
+      
+      if (val){
+        $(".plazasRow").show();
+        $('#paracaidismoSwitch').prop('checked', true);
+      }else{
+        $(".plazasRow").hide();
+        //also set 0
+        $('.btnPlazas').prop('checked', false);
+        $('#paracaidismoSwitch').prop('checked', false);
+        saveVuelo("plazas","");
+      
+      }
+    }
+    function backToBack(){
+      confirmDialog("Back to Back","Desea iniciar vuelo Back to Back?", (ans) => {      
+        if (ans){
+          guardarGenerico(2); 
+        }
+
+
+      });
+
+      
+    }
+
+
+
+
+    function guardar(){
+      confirmDialog("Finalizar vuelo","Desea finalizar el vuelo actual?", (ans) => {      
+        if (ans){
+          guardarGenerico(1); 
+        }
+
+
+      });
+
+ 
+    }
+
+
+
+    //MODE: 1- guardar,2:back to back
+    function guardarGenerico(mode)
+    {      
+      let vuelos=data["vuelos"];
+      
+      var valid=true;
+      var msg="Completar: ";
+      var errs=[];
+
+      if (!getCurrentVuelo()["de"]) {
+        errs.push("de");
+        valid=false;
+      }
+      if (!getCurrentVuelo()["a"]){
+        errs.push("a");
+        valid=false;
+      }
+      if (!getCurrentVuelo()["piloto"]) {
+        errs.push("piloto");
+        valid=false;
+      }
+      if (!getCurrentVuelo()["taqInicial"]) {
+        errs.push("taquímetro inicial");
+        valid=false;
+      }
+
+      if (!getCurrentVuelo()["taqFinal"]) {
+        errs.push("taquímetro final");
+        valid=false;
+      }
+      if (!getCurrentVuelo()["puestaMarcha"]) {
+        errs.push("puesta en marcha");
+        valid=false;
+      }
+      if (!getCurrentVuelo()["apagado"]) {
+        errs.push("apagado");
+        valid=false;
+      }      
+      if ($('#paracaidismoSwitch').prop('checked') && !getCurrentVuelo()["plazas"]) {
+        errs.push("plazas");
+        valid=false;
+      }      
+      if (valid)
+      {
+
+      //llamar a spreadsheet service para registrar la venta
+      console.log("guardar: ");
+      console.log(vuelos);
+      if (mode==1){
+      	callAPI("syncVuelos", vuelos, mode, successConfirmarCarga, errorGuardar)
+        //google.script.run.withUserObject(mode).withFailureHandler(errorGuardar).withSuccessHandler(successConfirmarCarga).syncVuelos(vuelos);       
+      }else{
+      	callAPI("syncVuelos", vuelos, mode, successBackToBack, errorBackToBack)
+        //google.script.run.withUserObject(mode).withFailureHandler(errorBackToBack).withSuccessHandler(successBackToBack).syncVuelos(vuelos);       
+      }
+      
+
+
+
+
+      }
+      else
+      {
+        var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+        var body=msg+(errs.join(", "));
+        
+        $("#submitModalLabel").html("Error");
+        $("#submitModal .modal-body").html(body);
+        myModal.show();          
+      }
+    }
+
+    function errorSync(e,mode){
+         var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+        var body="No hay conexion intente mas tarde";
+        
+        $("#submitModalLabel").html("Error");
+        $("#submitModal .modal-body").html(body);
+        myModal.show();      
+    }
+
+        
+
+    function successConfirmarCarga(result, mode){
+      console.log(result);
+      saveVuelosData(result);
+      var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+      var body="Guardado";
+      
+      $("#submitModalLabel").html("Cargar vuelo");
+      $("#submitModal .modal-body").html(body);
+      myModal.show();       
+      vueloNuevo(newEmptyRecord());
+   
+    }
+    function errorGuardar(e,mode){
+      //si estoy guardando, mostrar si hay error, si es back to back no importa
+         var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+        var body="No hay conexion, se sincronizará más tarde cuando finalice el día o guarde otro vuelo";
+        
+        $("#submitModalLabel").html("Finalizar vuelo");
+        $("#submitModal .modal-body").html(body);
+        myModal.show(); 
+      vueloNuevo(newEmptyRecord());
+    }     
+
+
+    function successBackToBack(result, mode){
+      console.log(result);
+      saveVuelosData(result);
+      postBackToBack();
+    }
+    function errorBackToBack(e,mode){
+      postBackToBack();
+    }  
+    function postBackToBack(){
+      var newVuelo=newEmptyRecord();
+      newVuelo["piloto"]=getCurrentVuelo()["piloto"]
+      newVuelo["de"]=getCurrentVuelo()["de"]
+      newVuelo["a"]=getCurrentVuelo()["a"]
+      newVuelo["taqInicial"]=getCurrentVuelo()["taqFinal"]
+      var apagado=getCurrentVuelo()["apagado"]
+      vueloNuevo(newVuelo);
+
+      pintarBotonera("btn-puestaMarcha", apagado);
+    }    
+
+
+
+    function finalizar(){
+      confirmDialog("Finalizar día","Desea finalizar la carga del día?", (ans) => {
+        if (ans) {
+
+
+            //chequear si no quedo algun vuelo abierto
+          let vuelos=data["vuelos"];
+            
+            var valid=true;
+
+            //de y a no se validan porque tienen datos por defecto
+            if (getCurrentVuelo()["piloto"]||getCurrentVuelo()["taqInicial"]||getCurrentVuelo()["taqFinal"]||getCurrentVuelo()["puestaMarcha"]||getCurrentVuelo()["despegue"]||getCurrentVuelo()["lanzamiento"]||getCurrentVuelo()["aterrizaje"]||getCurrentVuelo()["apagado"]||getCurrentVuelo()["plazas"]||getCurrentVuelo()["aceite"]||getCurrentVuelo()["obs"]) {
+              valid=false;
+            }
+      
+            
+            if (valid)
+            {
+
+          
+            console.log("guardar: ");
+            console.log(vuelos);
+            callAPI("syncVuelos", vuelos, mode, successFinalizar, errorSync)
+            //google.script.run.withFailureHandler(errorSync).withSuccessHandler(successFinalizar).syncVuelos(vuelos);       
+            }
+            else
+            {
+              var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+              $("#submitModalLabel").html("Error");
+              $("#submitModal .modal-body").html("Faltan finalizar vuelos");
+              myModal.show();          
+            }
+
+        }
+      }
+      );      
+   
+    }    
+
+
+
+    function successFinalizar(result){
+        console.log(result);
+        //sacar ultimo vuelo vacío
+        if (getCurrentVuelo()["piloto"]||getCurrentVuelo()["taqInicial"]||getCurrentVuelo()["taqFinal"]||getCurrentVuelo()["puestaMarcha"]||getCurrentVuelo()["despegue"]||getCurrentVuelo()["lanzamiento"]||getCurrentVuelo()["aterrizaje"]||getCurrentVuelo()["apagado"]||getCurrentVuelo()["plazas"]||getCurrentVuelo()["aceite"]||getCurrentVuelo()["obs"]) {
+           //hay datos, error
+
+          }else{
+            result.pop();
+          }        
+        
+
+        //chequear si quedó algun vuelo no sincronizado no dejar finalizar
+        
+        if (result.every(each=>(each.synced))){
+
+            
+          var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+          var body="Finalizado correctamente";
+          
+          $("#submitModalLabel").html("Finalizar día");
+          $("#submitModal .modal-body").html(body);
+          myModal.show(); 
+          window.localStorage.removeItem("data");
+          loadDataBase();
+          cargar();
+        }else{
+          var myModal = new bootstrap.Modal(document.getElementById('submitModal'), {});
+          var body="No se pudieron sincronizar todos los vuelos, chequee la conexión e intente nuevamente ";
+          
+          $("#submitModalLabel").html("Finalizar día");
+          $("#submitModal .modal-body").html(body);
+          myModal.show(); 
+
+        }
+    }
+
+
+    function saveVuelosData(vuelos){
+      data["vuelos"]=vuelos;
+      actualizarNroVuelo();
+      refrescarHeaderData();
+      window.localStorage.setItem("data",JSON.stringify(data));
+
+    }
+
+    function vueloNuevo(newVuelo){
+      data["vuelos"].push(newVuelo);
+      actualizarNroVuelo();
+      window.localStorage.setItem("data",JSON.stringify(data));
+      //reLoad();
+      cargar();
+      
+    }
+
+
+
+    function clean(){
+      confirmDialog("Cancelar","Desea cancelar el vuelo actual?", (ans) => {
+        if (ans) {
+
+
+            data["vuelos"].pop();
+            vueloNuevo(newEmptyRecord());
+
+        }
+      }
+      );
+    }
+
+    function refrescarHeaderData(){
+    	callAPI("getDatosCargados", null, null, successRefrescarHeader, errorSync)
+      //google.script.run.withFailureHandler(errorSync).withSuccessHandler(successRefrescarHeader).getDatosCargados(); 
+    }
+
+    function successRefrescarHeader(res){
+      $("#ultimoTaq").html(res[0]);
+      $("#vuelosCargados").html(res[1]);
+    }
+
+
+
+    function newEmptyRecord(){
+      return {fecha: new Date().toISOString(), de: "AVA", a: "AVA"}      
+    }
+
+    function reLoad() {
+          //google.script.run
+          //.withSuccessHandler(function(url){
+          //  window.open(url,'_top');
+          //})
+          //.getScriptURL();
+    }      
+
+
+
+
+function confirmDialog(title, message, handler){
+  $(`
+
+<div class="modal fade" id="submitModalConfirmacion" tabindex="-1" aria-labelledby="submitModalConfirmacionLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="submitModalConfirmacionLabel">${title}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+       ${message}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-no" data-bs-dismiss="modal">Cerrar</button>
+        <button type="button" class="btn btn-primary btn-yes">Confirmar</button>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+  `).appendTo('body');
+ 
+  //Trigger the modal
+  var myModal = new bootstrap.Modal(document.getElementById('submitModalConfirmacion'), {});
+
+  myModal.show(); 
+  
+   //Pass true to a callback function
+   $("#submitModalConfirmacion .btn-yes").click(function () {
+       handler(true);
+      const conf_modal = document.querySelector('#submitModalConfirmacion');
+      const modal = bootstrap.Modal.getInstance(conf_modal);   
+      modal.hide(); 
+   });
+    
+   //Pass false to callback function
+   $(".btn-no").click(function () {
+       handler(false);
+      const conf_modal = document.querySelector('#submitModalConfirmacion');
+      const modal = bootstrap.Modal.getInstance(conf_modal);   
+      modal.hide(); 
+   });
+
+   //Remove the modal once it is closed.
+   $("#submitModalConfirmacion").on('hidden.bs.modal', function () {
+      $("#submitModalConfirmacion").remove();
+   });
+}
+  </script>
+</head>
+
+<body>
+  <div class="d-flex justify-content-center p-1 bg-secondary text-white">
+    <h5 class="m-1">Vuelo <span class="badge bg-light text-dark" id="nroVuelo"></span></h5>
+    <h6 style="display: flex;justify-content: center;align-items: end;">| CARGADOS:  ultimo taq: <span id="ultimoTaq" class="badge bg-light text-dark"></span> | vuelos: <span class="badge bg-light text-dark" id="vuelosCargados"></span></h6>
+    <a target="blank" href="https://docs.google.com/spreadsheets/d/1YP0OaWUU9Tgd_QJ08vb1H5ixKKovFqXogIvTOfrKYnk/edit?gid=272224758#gid=272224758" class="link-light" style="
+        margin-left: 3rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    ">planilla
+    </a>    
+  </div>
+  <div style="padding: 10px;">
+    <!--<h1 class="text-center">Vuelos</h1> -->
+    <form>
+    
+     
+      <div class="form-row ocultable">
+        <div class="input-group col-xl mb-3" style="margin-bottom: 0.5rem">
+        <span class="input-group-text">Piloto</span>
+<!--
+        <div class="col-auto">
+          <label for="piloto" class="col-form-label">Piloto</label>
+        </div>
+      -->
+          <select class="form-control  form-control-lg datainp" id="piloto"  >
+                 <option value="" disabled selected hidden>seleccione</option>
+
+
+          </select>
+        </div>
+      </div>   
+
+      <div class="form-row g-3 align-items-center  ocultable">
+        <!--
+        <div class="col-auto">
+          <label for="" class="col-form-label">Lugar</label>
+        </div>       
+        -->
+        <datalist id="lugares">
+          <option value="AVA">
+        </datalist>
+        <div class="input-group mb-3">
+          <span class="input-group-text">De</span>
+          <input type="text" id="de" class="form-control form-control-lg datainp" placeholder="Origen" list="lugares" >
+          <span class="input-group-text">a</span>
+          <input type="text" id="a" class="form-control form-control-lg datainp"  placeholder="Destino" list="lugares" >
+        </div>           
+
+      </div>
+      <div class="form-row g-3 align-items-center  ocultable">
+
+        <div class="input-group mb-3">
+          <span class="input-group-text">Taq.</span>
+          <input type="number" min="1" step="1" id="taqInicial" class="form-control form-control-lg datainp" lang="en" inputmode="decimal" placeholder="Inicial (sin '.')" >
+          <span class="input-group-text">a</span>
+          <input type="number" id="taqFinal"  min="1" step="1" disabled class="form-control form-control-lg datainp" inputmode="decimal" placeholder="Final (sin '.')" >
+        </div>           
+
+      </div>                   
+      <div class="form-row ocultable">
+        <div class="col-auto">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="paracaidismoSwitch" checked onclick="toggleParacaidismo(event.target.checked)">
+            <label class="form-check-label" for="paracaidismoSwitch">Paracaidismo - Plazas</label>
+          </div>          
+        </div>        
+        <div class="plazasRow form-group col-xl p-2">
+          <div class="btn-group selectAll" role="group" aria-label="Basic radio toggle button group" style="width: 100%">
+                <span class="input-group-text">all</span>
+                <button type="button" class="btn btn-outline-secondary" id="btnSelectAll-1">&#9662;</button>
+                <button type="button" class="btn btn-outline-secondary" id="btnSelectAll-2">&#9662;</button>
+                <button type="button" class="btn btn-outline-secondary" id="btnSelectAll-3">&#9662;</button>
+                <button type="button" class="btn btn-outline-secondary" id="btnSelectAll-4">&#9662;</button>
+          </div>
+        </div>
+          <div class="plazasRow form-group col-xl p-2">
+              <div class="btn-group" role="group" aria-label="Basic radio toggle button group" style="width: 100%">
+                              
+                <span class="input-group-text">#1</span>
+                <input type="radio" class="btn-check btnPlazas" name="btnradio1" id="btnradio11" value="12000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio11">12000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio1" id="btnradio12" value="10000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio12">10000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio1" id="btnradio13" value="8000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio13">8000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio1" id="btnradio14" value="5000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio14">5000</label>
+
+
+              </div>  
+              <div class="btn-group" role="group" aria-label="Basic radio toggle button group" style="width: 100%">
+                              
+                <span class="input-group-text">#2</span>
+                <input type="radio" class="btn-check btnPlazas" name="btnradio2" id="btnradio21" value="12000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio21">12000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio2" id="btnradio22" value="10000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio22">10000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio2" id="btnradio23" value="8000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio23">8000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio2" id="btnradio24" value="5000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio24">5000</label>
+
+
+              </div> 
+              <div class="btn-group" role="group" aria-label="Basic radio toggle button group" style="width: 100%">
+                              
+                <span class="input-group-text">#3</span>
+                <input type="radio" class="btn-check btnPlazas" name="btnradio3" id="btnradio31" value="12000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio31">12000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio3" id="btnradio32" value="10000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio32">10000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio3" id="btnradio33" value="8000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio33">8000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio3" id="btnradio34" value="5000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio34">5000</label>
+
+
+              </div>           
+              <div class="btn-group" role="group" aria-label="Basic radio toggle button group" style="width: 100%">
+                              
+                <span class="input-group-text">#4</span>
+                <input type="radio" class="btn-check btnPlazas" name="btnradio4" id="btnradio41" value="12000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio41">12000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio4" id="btnradio42" value="10000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio42">10000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio4" id="btnradio43" value="8000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio43">8000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio4" id="btnradio44" value="5000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio44">5000</label>
+
+
+              </div> 
+              <div class="btn-group" role="group" aria-label="Basic radio toggle button group" style="width: 100%">
+                              
+                <span class="input-group-text">#5</span>
+                <input type="radio" class="btn-check btnPlazas" name="btnradio5" id="btnradio51" value="12000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio51">12000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio5" id="btnradio52" value="10000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio52">10000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio5" id="btnradio53" value="8000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio53">8000</label>
+
+                <input type="radio" class="btn-check btnPlazas" name="btnradio5" id="btnradio54" value="5000" autocomplete="off">
+                <label class="btn btn-outline-secondary " for="btnradio54">5000</label>
+
+
+              </div>                                                           
+          </div>
+      </div>
+      <div class="form-row  ocultable">
+        <div class="form-group col-xl" style="margin-bottom: 1rem">
+          <input type="number" min="1" id="aceite" class="form-control form-control-lg datainp mt-4" lang="en" inputmode="decimal" placeholder="Aceite" >
+        </div>
+      </div>      
+      <div class="form-row  ocultable">
+        <div class="form-group col-xl" style="margin-bottom: 1rem">
+          <textarea id="obs" rows="1"  class="form-control form-control-lg   datainp" placeholder="Observaciones"></textarea>
+        </div>
+      </div>
+
+
+
+       <div class="form-row">
+        <!--
+        <div class="col-auto">
+          <label class="col-form-label">Detalles</label>
+        </div>        
+        -->
+        <div id="botonera" class="d-grid gap-4 col-12 mx-auto">
+          <button class="btn btn-primary bsb-btn-5xl" type="button" id="btn-puestaMarcha">Puesta Marcha</button>
+          <button class="btn btn-success bsb-btn-5xl" type="button" id="btn-despegue">Despegue</button>
+          <button class="btn btn-info bsb-btn-5xl" type="button" id="btn-lanzamiento">Lanzamiento</button>
+          <button class="btn btn-warning bsb-btn-5xl" type="button" id="btn-aterrizaje">Aterrizaje</button>
+          <button class="btn btn-secondary bsb-btn-5xl" type="button" id="btn-apagado">Apagado</button>
+        </div>
+      </div>     
+
+
+
+
+      <div class="form-row">
+        <div class="bg-light bg-gradient p-2 mt-3 d-flex justify-content-between align-items-center border">
+            <input type="button" value="Cancelar" class="btn btn-secondary col-4" onclick="clean()" style="width: 32%"/>
+
+
+            <input type="button" value="Fin.Vuelo" class="btn btn-primary  col-4" onclick="guardar()" style="width: 32%"/>
+
+            <input type="button" value="BackToBack" class="btn btn-success col-4 " onclick="backToBack()" style="width: 32%"/>
+        </div>
+
+        <div class="form-group col" style="margin-bottom: 1rem">
+          <div id="display_error" style="color: red"></div>
+          <div id="display_succ" style="color: green"></div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="bg-light bg-gradient p-3 d-flex justify-content-center align-items-center border">
+            <input type="button" id="btn-finalizar" value="Finalizar Día" class="btn btn-info col-12 " onclick="finalizar()"/>
+        </div>
+
+        <div class="form-group col" style="margin-bottom: 1rem">
+          <div id="display_error" style="color: red"></div>
+          <div id="display_succ" style="color: green"></div>
+        </div>
+      </div>
+
+
+    </form>
+  </div>
+
+
+
+
+<!-- Modal Validaciones -->
+<div class="modal fade" id="submitModal" tabindex="-2" aria-labelledby="submitModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="submitModalLabel"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary mx-4" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- JavaScript Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous">
+  </script>  
+</body>
+
+</html>
