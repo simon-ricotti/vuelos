@@ -131,11 +131,7 @@ function processPosition(position) {
     const altFt = Math.round(altAvg * 3.28084);
 
     resultEl.innerHTML = `
-      ${altFt} ft: ${viento.toFixed(1)} kt desde ${windDir}°
-      <svg class="wind-arrow" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${windDir}deg)">
-        <polygon points="50,10 60,30 55,30 55,90 45,90 45,30 40,30" fill="black" />
-      </svg>
-    `;
+      ${altFt} ft: ${viento.toFixed(1)} kt desde ${windDir}°`;
 
     accumulatedTurn = 0;
     maxGs = -Infinity;
