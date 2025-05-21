@@ -803,6 +803,10 @@ function confirmDialog(title, message, handler){
     ">planilla
     </a>    
   </div>
+  <div class="d-flex justify-content-center p-1 bg-info text-white">
+	<div id="status">Esperando GPS...</div>
+	<div id="result"></div>
+  </div>
   <div style="padding: 10px;">
     <!--<h1 class="text-center">Vuelos</h1> -->
     <form>
@@ -1038,6 +1042,7 @@ function confirmDialog(title, message, handler){
 
   <!-- JavaScript Bundle with Popper -->
  <script type="text/javascript" src="/vuelos/assets/bootstrap.bundle.min.js"></script>
+ <script type="text/javascript" src="/vuelos/assets/wind-estimator.js"></script>
 </body>
 
 </html>
