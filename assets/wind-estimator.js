@@ -151,7 +151,7 @@ function processPosition(position) {
 // --- Control ON/OFF ---
 function toggleGPS(enable) {
   if (enable && !watchId) {
-    statusEl.textContent = 'Activando GPS...';
+    statusEl.textContent = 'Activando Sacar vientos...';
     watchId = navigator.geolocation.watchPosition(
       processPosition,
       err => statusEl.textContent = `Error GPS: ${err.message}`,
@@ -160,7 +160,7 @@ function toggleGPS(enable) {
   } else if (!enable && watchId) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
-    statusEl.textContent = 'GPS desactivado';
+    statusEl.textContent = 'Sacar vientos desactivado';
     resultEl.textContent = '';
     resetBuffers();
   }
