@@ -1,4 +1,3 @@
-// --- Filtro de media móvil ---
 class MovingAverageFilter {
   constructor(size) {
     this.size = size;
@@ -10,11 +9,10 @@ class MovingAverageFilter {
   }
   getAverage() {
     if (this.buffer.length === 0) return 0;
-    return this.buffer.reduce((a, b) => a + b, 0) / this.buffer.length;
+    return this.buffer.reduce((a,b) => a+b, 0) / this.buffer.length;
   }
 }
 
-// --- Promedio circular para ángulos ---
 function averageAngle(degreesArray) {
   if (degreesArray.length === 0) return 0;
   let sinSum = 0, cosSum = 0;
@@ -28,62 +26,49 @@ function averageAngle(degreesArray) {
   return avgRad * 180 / Math.PI;
 }
 
-// --- Haversine: distancia y track entre dos puntos ---
-function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371e3;
-  const toRad = Math.PI / 180;
-  const φ1 = lat1 * toRad;
-  const φ2 = lat2 * toRad;
-  const Δφ = (lat2 - lat1) * toRad;
-  const Δλ = (lon2 - lon1) * toRad;
-
-  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c;
-
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
-  let θ = Math.atan2(y, x) * 180 / Math.PI;
-  if (θ < 0) θ += 360;
-
-  return { distance, track: θ };
-}
-
-// --- Variables y buffers ---
 const gsFilter = new MovingAverageFilter(5);
+const altFilter = new MovingAverageFilter(5);
 const trackBuffer = [];
 const trackBufferSize = 5;
 
 let positions = [];
 let groundspeeds = [];
 let tracks = [];
-let altitudes = [];
 
 let accumulatedTurn = 0;
 let lastTrack = null;
+
 let maxGs = -Infinity;
 let minGs = Infinity;
+let trackMinGs = 0;
 
 let statusEl = document.getElementById('status');
 let resultEl = document.getElementById('result');
+let active = false;
 
-let watchId = null;
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const toRad = Math.PI / 180;
+  const φ1 = lat1 * toRad, φ2 = lat2 * toRad;
+  const Δφ = (lat2 - lat1) * toRad;
+  const Δλ = (lon2 - lon1) * toRad;
 
-// --- Función para limpiar buffers ---
-function resetBuffers() {
-  positions = [];
-  groundspeeds = [];
-  tracks = [];
-  altitudes = [];
-  accumulatedTurn = 0;
-  lastTrack = null;
-  maxGs = -Infinity;
-  minGs = Infinity;
+  const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const d = R * c;
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+  let θ = Math.atan2(y, x) * 180 / Math.PI;
+  if (θ < 0) θ += 360;
+
+  return { distance: d, track: θ };
 }
 
-// --- Proceso de cada posición GPS ---
 function processPosition(position) {
-  const { latitude, longitude, altitude, accuracy } = position.coords;
+  if (!active) return;
+
+  const {latitude, longitude, altitude, accuracy} = position.coords;
   const time = position.timestamp;
 
   if (accuracy > 20) {
@@ -91,10 +76,11 @@ function processPosition(position) {
     return;
   }
 
-  positions.push({ time, lat: latitude, lon: longitude });
-  altitudes.push(altitude);
+  altFilter.add(altitude || 0);
+  const altAvg = altFilter.getAverage();
+
+  positions.push({time, lat: latitude, lon: longitude, alt: altAvg});
   if (positions.length > 10) positions.shift();
-  if (altitudes.length > 100) altitudes.shift();
 
   if (positions.length < 2) {
     statusEl.textContent = 'Esperando más datos GPS...';
@@ -103,8 +89,7 @@ function processPosition(position) {
 
   const prev = positions[positions.length - 2];
   const curr = positions[positions.length - 1];
-  const { distance, track } = haversine(prev.lat, prev.lon, curr.lat, curr.lon);
-
+  const {distance, track} = haversine(prev.lat, prev.lon, curr.lat, curr.lon);
   const dt = (curr.time - prev.time) / 1000;
   if (dt <= 0) return;
 
@@ -123,7 +108,6 @@ function processPosition(position) {
     tracks.shift();
   }
 
-  // Giro detectado
   if (lastTrack !== null) {
     let dAngle = trackSmooth - lastTrack;
     if (dAngle > 180) dAngle -= 360;
@@ -133,43 +117,45 @@ function processPosition(position) {
   lastTrack = trackSmooth;
 
   if (gsSmooth > maxGs) maxGs = gsSmooth;
-  if (gsSmooth < minGs) minGs = gsSmooth;
+  if (gsSmooth < minGs) {
+    minGs = gsSmooth;
+    trackMinGs = trackSmooth;
+  }
 
-  statusEl.textContent = `Acumulado giro: ${accumulatedTurn.toFixed(1)}°, GS: ${gsSmooth.toFixed(1)} kt`;
+  statusEl.textContent = `Acumulado giro: ${accumulatedTurn.toFixed(1)}°, GS actual: ${gsSmooth.toFixed(1)} kt`;
 
   if (accumulatedTurn >= 350) {
     const viento = (maxGs - minGs) / 2;
-    const altProm = altitudes.length ? (altitudes.reduce((a,b)=>a+b,0) / altitudes.length).toFixed(0) : 'n/a';
-    resultEl.textContent = `Estimación viento: ${viento.toFixed(1)} kt\nAltitud promedio: ${altProm} ft`;
+    const windFrom = (trackMinGs + 180) % 360;
+    const windDir = Math.round(windFrom);
+    const altFt = Math.round(altAvg * 3.28084);
+
+    resultEl.innerHTML = `
+      ${altFt} ft: ${viento.toFixed(1)} kt desde ${windDir}°
+      <svg class="wind-arrow" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="transform: rotate(${windDir}deg)">
+        <polygon points="50,10 60,30 55,30 55,90 45,90 45,30 40,30" fill="black" />
+      </svg>
+    `;
+
     accumulatedTurn = 0;
     maxGs = -Infinity;
     minGs = Infinity;
-    altitudes = [];
   }
 }
 
-// --- Control ON/OFF ---
-function toggleGPS(enable) {
-  if (enable && !watchId) {
-    statusEl.textContent = 'Activando Sacar vientos...';
-    watchId = navigator.geolocation.watchPosition(
-      processPosition,
-      err => statusEl.textContent = `Error GPS: ${err.message}`,
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-    );
-  } else if (!enable && watchId) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-    statusEl.textContent = 'Sacar vientos desactivado';
-    resultEl.textContent = '';
-    resetBuffers();
+document.getElementById('windToggle').addEventListener('change', e => {
+  active = e.target.checked;
+  if (!active) {
+    statusEl.textContent = 'Sacar Vientos desactivado';
+    resultEl.innerHTML = '';
   }
-}
-
-// --- Asociar al botón ---
-document.getElementById('windToggle').addEventListener('change', function () {
-  toggleGPS(this.checked);
 });
 
-// Iniciar en OFF
-toggleGPS(false);
+if ('geolocation' in navigator) {
+  navigator.geolocation.watchPosition(processPosition, 
+    err => statusEl.textContent = `Error GPS: ${err.message}`,
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+  );
+} else {
+  statusEl.textContent = 'Geolocalización no soportada en este navegador';
+}
