@@ -1048,7 +1048,11 @@ function confirmDialog(title, message, handler){
 
   <!-- JavaScript Bundle with Popper -->
  <script type="text/javascript" src="/vuelos/assets/bootstrap.bundle.min.js"></script>
- <script type="text/javascript" src="/vuelos/assets/wind-estimator.js"></script>
+
+	  <script type="module">
+    import { initWindEstimator } from '/vuelos/assets/wind-estimator.js';
+    initWindEstimator('status', 'result', 'windToggle');
+  </script>
 </body>
 
 </html>
