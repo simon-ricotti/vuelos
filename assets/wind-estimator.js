@@ -143,8 +143,7 @@ function processPosition(position) {
     const dirViento = (trackMinGs + 180) % 360;
     const altProm = altitudes.reduce((a, b) => a + b, 0) / altitudes.length;
 
-    const flecha = `🡡🡧🡤🡢🡥🡦🡣🡧`[Math.round(dirViento / 45) % 8] || '🡡';
-    resultEl.innerHTML = `${Math.round(altProm)} ft: ${viento.toFixed(1)} kt desde ${Math.round(dirViento)}° ${flecha}`;
+    resultEl.innerHTML = `${Math.round(altProm)} ft: ${viento.toFixed(1)} kt desde ${Math.round(dirViento)}°`;
 
     resetData();
   }
