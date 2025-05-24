@@ -1,6 +1,5 @@
 // wind-estimator.js
 
-// --- Clase filtro media móvil ---
 class MovingAverageFilter {
   constructor(size) {
     this.size = size;
@@ -16,7 +15,6 @@ class MovingAverageFilter {
   }
 }
 
-// --- Promedio circular para ángulos ---
 function averageAngle(degreesArray) {
   if (degreesArray.length === 0) return 0;
   let sinSum = 0, cosSum = 0;
@@ -30,16 +28,15 @@ function averageAngle(degreesArray) {
   return avgRad * 180 / Math.PI;
 }
 
-// --- Variables ---
 const gsFilter = new MovingAverageFilter(5);
 const altFilter = new MovingAverageFilter(5);
 const trackBuffer = [];
 const trackBufferSize = 5;
 
-let positions = [];       // almacena objetos {time, lat, lon, alt}
-let groundspeeds = [];    // GS filtrados
-let tracks = [];          // track filtrados
-let altitudes = [];       // altitudes
+let positions = [];
+let groundspeeds = [];
+let tracks = [];
+let altitudes = [];
 
 let accumulatedTurn = 0;
 let lastTrack = null;
@@ -52,7 +49,6 @@ let statusEl = null;
 let resultEl = null;
 let watchId = null;
 
-// --- Función para calcular distancia y track entre dos puntos ---
 function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const toRad = Math.PI / 180;
@@ -78,7 +74,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   return { distance: d, track: θ };
 }
 
-// --- Procesa cada posición GPS ---
 function processPosition(position) {
   const { latitude, longitude, accuracy, altitude } = position.coords;
   const time = position.timestamp;
@@ -109,6 +104,7 @@ function processPosition(position) {
   trackBuffer.push(track);
   if (trackBuffer.length > trackBufferSize) trackBuffer.shift();
   const trackSmooth = averageAngle(trackBuffer);
+  const trackRounded = Math.round(trackSmooth);
 
   altFilter.add(curr.alt);
   const avgAlt = altFilter.getAverage();
@@ -136,7 +132,7 @@ function processPosition(position) {
     trackMinGs = trackSmooth;
   }
 
-  statusEl.textContent = `Acumulado giro: ${accumulatedTurn.toFixed(1)}°, GS: ${gsSmooth.toFixed(1)} kt`;
+  statusEl.textContent = `Acumulado giro: ${accumulatedTurn.toFixed(1)}°, GS: ${gsSmooth.toFixed(1)} kt, Rumbo: ${trackRounded}°`;
 
   if (accumulatedTurn >= 350) {
     const viento = (maxGs - minGs) / 2;
@@ -164,7 +160,6 @@ function resetData() {
   trackBuffer.length = 0;
 }
 
-// --- Inicializador principal ---
 export function initWindEstimator(statusElementId, resultElementId, toggleElementId) {
   statusEl = document.getElementById(statusElementId);
   resultEl = document.getElementById(resultElementId);
