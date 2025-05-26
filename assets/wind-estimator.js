@@ -1,5 +1,3 @@
-// wind-estimator.js
-
 class MovingAverageFilter {
   constructor(size) {
     this.size = size;
@@ -34,8 +32,7 @@ const trackBuffer = [];
 const trackBufferSize = 5;
 
 let positions = [];
-let groundspeeds = [];
-let tracks = [];
+let gsTrackPairs = []; // NUEVO: almacena todos los pares GS y track
 let altitudes = [];
 
 let accumulatedTurn = 0;
@@ -43,7 +40,6 @@ let lastTrack = null;
 
 let maxGs = -Infinity;
 let minGs = Infinity;
-let trackMinGs = 0;
 
 let statusEl = null;
 let resultEl = null;
@@ -57,18 +53,16 @@ function haversine(lat1, lon1, lat2, lon2) {
   const Δφ = (lat2 - lat1) * toRad;
   const Δλ = (lon2 - lon1) * toRad;
 
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+  const a = Math.sin(Δφ / 2) ** 2 +
             Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            Math.sin(Δλ / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
   const d = R * c;
 
   const y = Math.sin(Δλ) * Math.cos(φ2);
   const x = Math.cos(φ1) * Math.sin(φ2) -
             Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  let θ = Math.atan2(y, x);
-  θ = θ * 180 / Math.PI;
+  let θ = Math.atan2(y, x) * 180 / Math.PI;
   if (θ < 0) θ += 360;
 
   return { distance: d, track: θ };
@@ -107,14 +101,12 @@ function processPosition(position) {
   const trackRounded = Math.round(trackSmooth);
 
   altFilter.add(curr.alt);
-  const avgAlt = altFilter.getAverage();
+  const altProm = altFilter.getAverage();
 
-  groundspeeds.push(gsSmooth);
-  tracks.push(trackSmooth);
-  altitudes.push(avgAlt);
-  if (groundspeeds.length > 100) {
-    groundspeeds.shift();
-    tracks.shift();
+  gsTrackPairs.push({ gs: gsSmooth, track: trackSmooth });
+  altitudes.push(altProm);
+  if (gsTrackPairs.length > 100) {
+    gsTrackPairs.shift();
     altitudes.shift();
   }
 
@@ -127,19 +119,21 @@ function processPosition(position) {
   lastTrack = trackSmooth;
 
   if (gsSmooth > maxGs) maxGs = gsSmooth;
-  if (gsSmooth < minGs) {
-    minGs = gsSmooth;
-    trackMinGs = trackSmooth;
-  }
+  if (gsSmooth < minGs) minGs = gsSmooth;
 
-  statusEl.textContent = `Acumulado giro: ${accumulatedTurn.toFixed(1)}°, GS: ${gsSmooth.toFixed(1)} kt, Rumbo: ${trackRounded}°`;
+  statusEl.textContent =
+    `Acumulado giro: ${accumulatedTurn.toFixed(1)}°, GS: ${gsSmooth.toFixed(1)} kt, Rumbo: ${trackRounded}°`;
 
   if (accumulatedTurn >= 350) {
     const viento = (maxGs - minGs) / 2;
-    const dirViento = (trackMinGs + 180) % 360;
-    const altProm = altitudes.reduce((a, b) => a + b, 0) / altitudes.length;
 
-    resultEl.innerHTML = `${Math.round(altProm)} ft: ${viento.toFixed(1)} kt desde ${Math.round(dirViento)}°`;
+    // Buscar track asociado al GS mínimo
+    const minPair = gsTrackPairs.reduce((min, pair) => pair.gs < min.gs ? pair : min, gsTrackPairs[0]);
+    const windDir = (minPair.track + 180) % 360;
+
+    const altPromFt = altitudes.reduce((a, b) => a + b, 0) / altitudes.length * 3.28084;
+
+    resultEl.innerHTML = `${Math.round(altPromFt)} ft: ${viento.toFixed(1)} kt desde ${Math.round(windDir)}°`;
 
     resetData();
   }
@@ -147,14 +141,12 @@ function processPosition(position) {
 
 function resetData() {
   positions = [];
-  groundspeeds = [];
-  tracks = [];
+  gsTrackPairs = [];
   altitudes = [];
   accumulatedTurn = 0;
   lastTrack = null;
   maxGs = -Infinity;
   minGs = Infinity;
-  trackMinGs = 0;
   gsFilter.buffer = [];
   altFilter.buffer = [];
   trackBuffer.length = 0;
