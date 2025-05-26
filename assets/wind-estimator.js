@@ -32,7 +32,7 @@ const trackBuffer = [];
 const trackBufferSize = 5;
 
 let positions = [];
-let gsTrackPairs = []; // NUEVO: almacena todos los pares GS y track
+let gsTrackPairs = [];
 let altitudes = [];
 
 let accumulatedTurn = 0;
@@ -127,14 +127,32 @@ function processPosition(position) {
   if (accumulatedTurn >= 350) {
     const viento = (maxGs - minGs) / 2;
 
-    // Buscar track asociado al GS mínimo
+    // Track asociado al GS mínimo
     const minPair = gsTrackPairs.reduce((min, pair) => pair.gs < min.gs ? pair : min, gsTrackPairs[0]);
     const windDir = (minPair.track + 180) % 360;
-
     const altPromFt = altitudes.reduce((a, b) => a + b, 0) / altitudes.length * 3.28084;
 
+    // Mostrar resultado
     resultEl.innerHTML = `${Math.round(altPromFt)} ft: ${viento.toFixed(1)} kt desde ${Math.round(windDir)}°`;
 
+    // --- GUARDAR EN LOCALSTORAGE ---
+    const timestamp = new Date().toISOString();
+    const data = {
+      timestamp,
+      altitud_ft: Math.round(altPromFt),
+      viento_kt: viento.toFixed(1),
+      direccion_desde: Math.round(windDir),
+      muestras: gsTrackPairs.map(p => ({
+        gs: p.gs.toFixed(1),
+        track: Math.round(p.track)
+      }))
+    };
+
+    let historial = JSON.parse(localStorage.getItem('vientoLogs')) || [];
+    historial.push(data);
+    localStorage.setItem('vientoLogs', JSON.stringify(historial));
+
+    // Reiniciar buffers
     resetData();
   }
 }
