@@ -129,7 +129,7 @@ function processPosition(position) {
 
     // Track asociado al GS mínimo
     const minPair = gsTrackPairs.reduce((min, pair) => pair.gs < min.gs ? pair : min, gsTrackPairs[0]);
-    const windDir = (minPair.track) % 360;
+    const windDir = (minPair.track + 180) % 360;
     const altPromFt = altitudes.reduce((a, b) => a + b, 0) / altitudes.length * 3.28084;
 
     // Mostrar resultado
